@@ -1,0 +1,390 @@
+{
+  "template": "logvehere-probe-*",
+  "version": 1,
+  "settings": {
+    "number_of_shards": 10,
+    "number_of_replicas": 1,
+    "index.mapping.total_fields.limit": 10000,
+    "index.refresh_interval": "300s",
+    "analysis": {
+      "analyzer": {
+        "character_analyzer": {
+          "type": "custom",
+          "tokenizer": "character_tokenizer"
+        },
+        "lowercase_analyzer": {
+          "type": "custom",
+          "tokenizer": "lowercase_tokenizer"
+        },
+        "index_phone_analyzer": {
+          "type": "custom",
+          "char_filter": [ "digit_only" ],
+          "tokenizer": "digit_edge_ngram_tokenizer",
+          "filter": [ "trim", "phone_number" ]
+        },
+        "search_phone_analyzer": {
+          "type": "custom",
+          "char_filter": [ "digit_only" ],
+          "tokenizer": "keyword",
+          "filter": [ "trim", "phone_number" ]
+        },
+        "uri_email_analyzer": {
+          "type": "custom",
+          "tokenizer": "uri_email_tokenizer"
+        },
+        "index_email_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [ "lowercase", "name_ngram_filter", "trim" ]
+        },
+        "search_email_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [ "lowercase", "trim" ]
+        }
+      },
+      "char_filter": {
+        "digit_only": {
+          "type": "pattern_replace",
+          "pattern": "[^\\d]",
+          "replacement": ""
+        }
+      },
+      "filter": {
+        "name_ngram_filter": {
+          "type": "ngram",
+          "min_gram": "1",
+          "max_gram": "1"
+        },
+        "phone_number": {
+          "type": "pattern_capture",
+          "preserve_original": true,
+          "patterns": [
+            "^[\\+]?[(]?[0-9]{3}[)]?[-\\s]?[0-9]{3}[-\\s]?[0-9]{4,6}$",
+            "^([+]\\d{2}[ ])?\\d{10}"
+          ]
+        }
+      },
+      "tokenizer": {
+        "character_tokenizer": {
+          "type": "nGram",
+          "min_gram": 1,
+          "max_gram": 1
+        },
+        "uri_email_tokenizer": {
+          "type": "uax_url_email"
+        },
+        "lowercase_tokenizer": {
+          "type": "lowercase"
+        },
+        "digit_edge_ngram_tokenizer": {
+          "type": "edgeNGram",
+          "min_gram": "1",
+          "max_gram": "1",
+          "token_chars": [ "digit" ]
+        }
+      }
+    }
+  },
+  "mappings": {
+      "dynamic_templates": [
+        {
+          "message_field": {
+            "path_match": "message",
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "text",
+              "norms": false
+            }
+          }
+        },
+        {
+          "string_fields": {
+            "match": "*",
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "text",
+              "norms": false,
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                },
+                "count": {
+                  "type": "token_count",
+                  "analyzer": "standard"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "@version": {
+          "type": "keyword"
+        },
+	"payload":{
+	  "properties": {
+             "dns_domain_names":{
+                "type": "text",
+                "norms": false,
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "length": {
+                    "type": "token_count",
+                    "analyzer": "character_analyzer"
+                  },
+                  "count": {
+                    "type": "token_count",
+                    "analyzer": "standard"
+                  }
+                }
+
+              },
+            "dns_headers": {
+               "properties": {
+                  "dns_domain_name": {
+                     "type": "text",
+                     "norms": false,
+                   "fields": {
+                      "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    },
+                    "length": {
+                      "type": "token_count",
+                      "analyzer": "character_analyzer"
+                    },
+                    "count": {
+                      "type": "token_count",
+                      "analyzer": "standard"
+                    }
+                  }
+                 }
+               }
+             },
+             "ssl_server_name": {
+               "type": "text",
+                     "norms": false,
+                   "fields": {
+                      "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    },
+                    "length": {
+                      "type": "token_count",
+                      "analyzer": "character_analyzer"
+                    },
+                    "count": {
+                      "type": "token_count",
+                      "analyzer": "standard"
+                    }
+                  }
+
+             }
+
+           }
+	},
+        "linked": {
+          "properties": {
+            "keywords": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "identities": {
+              "type": "text",
+              "analyzer": "index_email_analyzer",
+              "search_analyzer": "search_email_analyzer",
+              "fields": {
+                "uri_email": {
+                  "type": "text",
+                  "analyzer": "uri_email_analyzer",
+                  "search_analyzer": "uri_email_analyzer"
+                }
+              }
+            },
+            "phonenos": {
+              "type": "text",
+              "analyzer": "index_phone_analyzer",
+              "search_analyzer": "search_phone_analyzer"
+            },
+            "ips": {
+              "type": "ip"
+            },
+            "addresses": {
+              "type": "keyword"
+            },
+            "filters": {
+              "type": "keyword"
+            }
+          }
+        },
+        "session": {
+          "properties": {
+            "received_bytes": {
+              "type": "long"
+            },
+            "received_packets": {
+              "type": "long"
+            },
+            "max_mtu": {
+              "type": "long"
+            },
+            "end_time": {
+              "type": "date"
+            },
+            "min_mtu": {
+              "type": "long"
+            },
+            "duration": {
+              "type": "long"
+            },
+            "raw_array_index": {
+              "type": "long"
+            },
+            "start_time": {
+              "type": "date"
+            },
+            "transmitted_packets": {
+              "type": "long"
+            },
+            "total_bytes": {
+              "type": "long"
+            },
+            "raw_buffer_index": {
+              "type": "long"
+            },
+            "transmitted_bytes": {
+              "type": "long"
+            },
+            "total_packets": {
+              "type": "long"
+            },
+            "response_time": {
+              "type": "long"
+            },
+            "iop": {
+              "type": "long"
+            },
+            "client_payload_std_deviation": {
+              "type": "float"
+            },
+            "server_payload_std_deviation": {
+              "type": "float"
+            },
+            "client_average_interarrival_time": {
+              "type": "float"
+            },
+            "server_average_interarrival_time": {
+              "type": "float"
+            },
+            "client_std_dev_interarrival_time": {
+              "type": "float"
+            },
+            "server_std_dev_interarrival_time": {
+              "type": "float"
+            },
+            "tcp_server_delay": {
+              "type": "float"
+            },
+            "tcp_client_delay": {
+              "type": "float"
+            }
+          }
+        },
+        "network": {
+          "properties": {
+            "detected_names": {
+                "type": "text",
+                "norms": false,
+                "fields": {
+                  "keyword": {
+                     "type": "keyword",
+                     "ignore_above": 256
+                     },
+                     "length": {
+                       "type": "token_count",
+                       "analyzer": "character_analyzer"
+                     },
+                     "count": {
+                       "type": "token_count",
+                       "analyzer": "standard"
+                     }
+                   }
+
+             },
+            "src_asn_number": {
+              "type": "long"
+            },
+            "dst_geo_ip": {
+              "dynamic": true,
+              "properties": {
+                "ip": {
+                  "type": "ip"
+                },
+                "location": {
+                  "type": "geo_point"
+                },
+                "latitude": {
+                  "type": "half_float"
+                },
+                "longitude": {
+                  "type": "half_float"
+                }
+              }
+            },
+            "src_geo_ip": {
+              "dynamic": true,
+              "properties": {
+                "ip": {
+                  "type": "ip"
+                },
+                "location": {
+                  "type": "geo_point"
+                },
+                "latitude": {
+                  "type": "half_float"
+                },
+                "longitude": {
+                  "type": "half_float"
+                }
+              }
+            },
+            "src_location": {
+              "type": "geo_point"
+            },
+            "dst_asn_number": {
+              "type": "long"
+            },
+            "dst_location": {
+              "type": "geo_point"
+            },
+            "ip_version": {
+              "type": "long"
+            },
+            "ip_addresses": {
+              "type": "ip"
+            },
+            "src_ip": {
+              "type": "ip"
+            },
+            "dst_ip": {
+              "type": "ip"
+            }
+          }
+        }
+      }
+    }
+}
+
